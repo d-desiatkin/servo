@@ -12,6 +12,8 @@ use serde::Serialize;
 use servo_arc::Arc as ServoArc;
 use style::properties::ComputedValues;
 use style::values::specified::text::TextDecorationLine;
+// use style::values::computed::text::TextEmphasisStyle as ComputedTextEmphasisStyle;
+use style::computed_values::text_emphasis_style::T as ComputedTextEmphasisStyle;
 use style::Zero;
 use webrender_api::{FontInstanceKey, ImageKey};
 
@@ -72,6 +74,8 @@ pub(crate) struct TextFragment {
 
     /// A flag that represents the _used_ value of the text-decoration property.
     pub text_decoration_line: TextDecorationLine,
+
+    pub text_emphasis_style: ComputedTextEmphasisStyle,
 
     /// Extra space to add for each justification opportunity.
     pub justification_adjustment: Au,

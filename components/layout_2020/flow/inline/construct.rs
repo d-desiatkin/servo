@@ -8,6 +8,7 @@ use std::char::{ToLowercase, ToUppercase};
 use icu_segmenter::WordSegmenter;
 use style::computed_values::white_space_collapse::T as WhiteSpaceCollapse;
 use style::values::computed::TextDecorationLine;
+use style::values::computed::text::TextEmphasisStyle as ComputedTextEmphasisStyle;
 use style::values::specified::text::TextTransformCase;
 use unicode_bidi::Level;
 
@@ -273,6 +274,7 @@ impl InlineFormattingContextBuilder {
         &mut self,
         layout_context: &LayoutContext,
         text_decoration_line: TextDecorationLine,
+        text_emphasis_style: ComputedTextEmphasisStyle,
         has_first_formatted_line: bool,
         default_bidi_level: Level,
     ) -> Option<InlineFormattingContext> {
@@ -305,6 +307,7 @@ impl InlineFormattingContextBuilder {
         inline_builder_from_before_split.finish(
             layout_context,
             text_decoration_line,
+            text_emphasis_style,
             has_first_formatted_line,
             /* is_single_line_text_input = */ false,
             default_bidi_level,
@@ -316,6 +319,7 @@ impl InlineFormattingContextBuilder {
         &mut self,
         layout_context: &LayoutContext,
         text_decoration_line: TextDecorationLine,
+        text_emphasis_style: ComputedTextEmphasisStyle,
         has_first_formatted_line: bool,
         is_single_line_text_input: bool,
         default_bidi_level: Level,
@@ -331,6 +335,7 @@ impl InlineFormattingContextBuilder {
             old_builder,
             layout_context,
             text_decoration_line,
+            text_emphasis_style,
             has_first_formatted_line,
             is_single_line_text_input,
             default_bidi_level,

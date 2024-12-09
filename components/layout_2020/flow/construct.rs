@@ -215,6 +215,7 @@ where
         if let Some(inline_formatting_context) = self.inline_formatting_context_builder.finish(
             self.context,
             self.text_decoration_line,
+            self.info.style.clone_text_emphasis_style(),
             !self.have_already_seen_first_line_for_text_indent,
             self.info.is_single_line_text_input(),
             self.info.style.writing_mode.to_bidi_level(),
@@ -489,6 +490,7 @@ where
             .split_around_block_and_finish(
                 self.context,
                 self.text_decoration_line,
+                self.info.style.clone_text_emphasis_style(),
                 !self.have_already_seen_first_line_for_text_indent,
                 self.info.style.writing_mode.to_bidi_level(),
             )
@@ -602,6 +604,7 @@ where
         if let Some(inline_formatting_context) = self.inline_formatting_context_builder.finish(
             self.context,
             self.text_decoration_line,
+            self.info.style.clone_text_emphasis_style(),
             !self.have_already_seen_first_line_for_text_indent,
             self.info.is_single_line_text_input(),
             self.info.style.writing_mode.to_bidi_level(),

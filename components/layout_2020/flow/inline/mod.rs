@@ -97,6 +97,7 @@ use style::context::QuirksMode;
 use style::properties::style_structs::InheritedText;
 use style::properties::ComputedValues;
 use style::values::computed::Clear;
+use style::values::computed::text::TextEmphasisStyle as ComputedTextEmphasisStyle;
 use style::values::generics::box_::VerticalAlignKeyword;
 use style::values::generics::font::LineHeight;
 use style::values::specified::box_::BaselineSource;
@@ -154,6 +155,8 @@ pub(crate) struct InlineFormattingContext {
     pub font_metrics: Vec<FontKeyAndMetrics>,
 
     pub(super) text_decoration_line: TextDecorationLine,
+
+    pub(super) text_emphasis_style: ComputedTextEmphasisStyle,
 
     /// Whether this IFC contains the 1st formatted line of an element:
     /// <https://www.w3.org/TR/css-pseudo-4/#first-formatted-line>.
@@ -529,6 +532,8 @@ pub(super) struct InlineContainerState {
     // "When specified on or propagated to a block container that establishes
     //  an IFC..."
     text_decoration_line: TextDecorationLine,
+
+    text_emphasis_style: ComputedTextEmphasisStyle,
 
     /// The block size contribution of this container's default font ie the size of the
     /// "strut." Whether this is integrated into the [`Self::nested_strut_block_sizes`]
@@ -1325,6 +1330,7 @@ impl<'layout_dta> InlineFormattingContextLayout<'layout_dta> {
                 font_metrics,
                 font_key: ifc_font_info.key,
                 text_decoration_line: self.current_inline_container_state().text_decoration_line,
+                text_emphasis_style: self.current_inline_container_state().text_emphasis_style.clone(),
                 bidi_level,
             },
         ));
@@ -1518,6 +1524,7 @@ impl InlineFormattingContext {
         builder: InlineFormattingContextBuilder,
         layout_context: &LayoutContext,
         text_decoration_line: TextDecorationLine,
+        text_emphasis_style: ComputedTextEmphasisStyle,
         has_first_formatted_line: bool,
         is_single_line_text_input: bool,
         starting_bidi_level: Level,
@@ -1570,6 +1577,7 @@ impl InlineFormattingContext {
             inline_boxes: builder.inline_boxes,
             font_metrics,
             text_decoration_line,
+            text_emphasis_style,
             has_first_formatted_line,
             contains_floats: builder.contains_floats,
             is_single_line_text_input,
@@ -1740,6 +1748,7 @@ impl InlineContainerState {
         font_metrics: Option<&FontMetrics>,
     ) -> Self {
         let text_decoration_line = parent_text_decoration_line | style.clone_text_decoration_line();
+        let text_emphasis_style = style.clone_text_emphasis_style();
         let font_metrics = font_metrics.cloned().unwrap_or_else(FontMetrics::empty);
         let line_height = line_height(
             &style,
@@ -1777,6 +1786,7 @@ impl InlineContainerState {
             flags,
             has_content: RefCell::new(false),
             text_decoration_line,
+            text_emphasis_style,
             nested_strut_block_sizes: nested_block_sizes,
             strut_block_sizes,
             baseline_offset,

@@ -14,6 +14,7 @@ use style::values::generics::font::LineHeight;
 use style::values::specified::align::AlignFlags;
 use style::values::specified::box_::DisplayOutside;
 use style::values::specified::text::TextDecorationLine;
+use style::values::computed::text::TextEmphasisStyle as ComputedTextEmphasisStyle;
 use style::Zero;
 use unicode_bidi::{BidiInfo, Level};
 use webrender_api::FontInstanceKey;
@@ -577,6 +578,7 @@ impl<'layout_data, 'layout> LineItemLayout<'layout_data, 'layout> {
                 font_key: text_item.font_key,
                 glyphs: text_item.text,
                 text_decoration_line: text_item.text_decoration_line,
+                text_emphasis_style: text_item.text_emphasis_style,
                 justification_adjustment: self.justification_adjustment,
             }),
             content_rect,
@@ -766,6 +768,7 @@ pub(super) struct TextRunLineItem {
     pub font_metrics: FontMetrics,
     pub font_key: FontInstanceKey,
     pub text_decoration_line: TextDecorationLine,
+    pub text_emphasis_style: ComputedTextEmphasisStyle,
     /// The BiDi level of this [`TextRunLineItem`] to enable reordering.
     pub bidi_level: Level,
 }

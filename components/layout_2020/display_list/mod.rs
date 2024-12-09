@@ -2,7 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use core::borrow;
 use std::cell::{OnceCell, RefCell};
+use std::ops::Deref;
 use std::sync::Arc;
 
 use app_units::Au;
@@ -25,7 +27,7 @@ use style::properties::ComputedValues;
 use style::values::computed::image::Image;
 use style::values::computed::{
     BorderImageSideWidth, BorderImageWidth, BorderStyle, Color, LengthPercentage,
-    NonNegativeLengthOrNumber, NumberOrPercentage, OutlineStyle,
+    NonNegativeLengthOrNumber, NumberOrPercentage, OutlineStyle, TextEmphasisStyle,
 };
 use style::values::generics::rect::Rect;
 use style::values::generics::NonNegative;
@@ -458,6 +460,23 @@ impl Fragment {
             None,
         );
 
+        // Text-emphasis here?
+        // It was like that in old layout but should we consider to implement it closer to shaper?
+        match fragment.text_emphasis_style {
+            TextEmphasisStyle::Keyword{fill,shape} => log::warn!("{:?} {:?}", fill, shape),
+            TextEmphasisStyle::String(_) => log::warn!("{:?}", fragment.text_emphasis_style),
+            TextEmphasisStyle::None => log::warn!("None")
+        }
+        // Right now we can implement only partial case of ruby resolution algorithm.
+        // Generate pseudo ruby tag for that particular case
+        // Perform bases and annotation levels calculation
+        // https://html.spec.whatwg.org/multipage/text-level-semantics.html#the-ruby-element
+
+        // Perform emphasis position calculation according to following document
+        // https://www.w3.org/TR/css-ruby-1/#ruby-layout
+
+
+
         // Line-through.
         if fragment
             .text_decoration_line
@@ -500,6 +519,18 @@ impl Fragment {
             text_decoration_style.to_webrender(),
         );
         // XXX(ferjm) support text-decoration-style: double
+    }
+
+    fn build_display_list_for_text_emphasis(
+        &self,
+        fragment: &TextFragment,
+        builder: &mut DisplayListBuilder,
+        rect: &PhysicalRect<Au>,
+        color: &AbsoluteColor,
+    ) {
+        todo!("Add generated pseudo text fragment that contains emphasis to ruby list here!")
+        // XXX(desiatkin-dk) support text-emphasis-style
+        //
     }
 }
 
