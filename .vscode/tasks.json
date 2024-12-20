@@ -1,0 +1,49 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+      // Debug tasks group
+      {
+        "label": "Servo Debug build",
+        "type": "shell",
+        "command": "${workspaceFolder}/mach build -d",
+        "group": "build",
+        "runOptions": {
+            "instanceLimit": 1
+        },
+      },
+      {
+        "label": "Servo Debug launch",
+        "type": "shell",
+        "command": "RUST_LOG=warn ${workspaceFolder}/mach run -d &",
+        "group": "none",
+        "runOptions": {
+            "instanceLimit": 1,
+        },
+        "dependsOn": "Servo Debug build",
+        "isBackground": true
+      },
+      // Release tasks group
+      {
+        "label": "Servo Release build",
+        "type": "shell",
+        "command": "${workspaceFolder}/mach build -r",
+        "group": "build",
+        "runOptions": {
+            "instanceLimit": 1
+        },
+      },
+      {
+        "label": "Servo Release launch",
+        "type": "shell",
+        "command": "${workspaceFolder}/mach run -r &",
+        "group": "none",
+        "runOptions": {
+            "instanceLimit": 1,
+        },
+        "dependsOn": "Servo Release build",
+        "isBackground": true
+      }
+    ]
+  }

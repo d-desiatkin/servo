@@ -1,0 +1,13 @@
+{
+    // Without clear path statement UV was not found
+    "rust-analyzer.cargo.extraEnv": {
+        "PATH": "${userHome}/.local/bin:${userHome}/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin"
+    },
+    "rust-analyzer.cargo.extraArgs": [],
+    "rust-analyzer.rustfmt.overrideCommand": [ "./mach", "fmt" ],
+
+    "rust-analyzer.check.overrideCommand": [
+        "./mach", "clippy", "--message-format=json" ],
+    "rust-analyzer.cargo.buildScripts.overrideCommand": [
+        "./mach", "clippy", "--message-format=json" ],
+}
