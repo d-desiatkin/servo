@@ -228,6 +228,9 @@ impl LineItemLayout<'_, '_> {
             })
             .collect();
 
+        // Here only L2 rule of bidi reordering is applied. We break Unicode plaintext convention of shaping and
+        // linebreaking by doing it here, because this reordering should happen before shaping of the text.
+        // But we do it for performance reasons.
         if self.layout.ifc.has_right_to_left_content {
             sort_by_indices_in_place(&mut line_items, BidiInfo::reorder_visual(&levels));
         }

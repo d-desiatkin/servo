@@ -7,6 +7,7 @@ use std::convert::TryFrom;
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use servo_arc::Arc;
+use style::computed_values::direction::T as CSSDiretcion;
 use style::properties::longhands::list_style_position::computed_value::T as ListStylePosition;
 use style::properties::ComputedValues;
 use style::selector_parser::PseudoElement;
@@ -428,6 +429,16 @@ where
         contents: Contents,
         box_slot: BoxSlot<'dom>,
     ) {
+        if self.inline_formatting_context_builder.is_empty() {
+            // Here we make realization conformant to
+            // https://www.w3.org/TR/css-writing-modes-3/#bidi-para-direction
+            // Another candidate is to do it in new method of inline_formatting_context_builder
+            // In terms of realization we just push LRM or RLM as a very first symbol of whole inline
+            // Formatting context. That will be equivalent of overriding paragraph direction
+            let is_dir_rtl = info.style.clone_direction() == CSSDiretcion::Rtl;
+            self.inline_formatting_context_builder
+                .override_base_bidi_paragraph_level(is_dir_rtl);
+        }
         let (DisplayInside::Flow { is_list_item }, false) =
             (display_inside, contents.is_replaced())
         else {

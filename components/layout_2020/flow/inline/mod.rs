@@ -1529,6 +1529,11 @@ impl InlineFormattingContext {
         let text_content: String = builder.text_segments.into_iter().collect();
         let mut font_metrics = Vec::new();
 
+        // Usage of BidiInfo::new breakes several conventions of Unicode UA#9 bidirectional algorithm and we should
+        // follow this algorithm in CSS. First we do not override bidi_paragraph direction and just get it from the text
+        // in straightforward manner.
+        // Second BidiInfo creation will not apply proper reorderings. According to Unicode we should perform L1 and L2
+        // steps of algorithm before shaping.
         let bidi_info = BidiInfo::new(&text_content, Some(starting_bidi_level));
         let has_right_to_left_content = bidi_info.has_rtl();
 
