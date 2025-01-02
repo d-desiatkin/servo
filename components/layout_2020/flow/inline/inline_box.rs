@@ -9,7 +9,7 @@ use fonts::FontMetrics;
 use serde::Serialize;
 use servo_arc::Arc;
 use style::properties::ComputedValues;
-use unicode_bidi::{BidiInfo, Level};
+use unicode_bidi::Level;
 
 use super::{inline_container_needs_strut, InlineContainerState, InlineContainerStateFlags};
 use crate::cell::ArcRefCell;

@@ -2467,25 +2467,3 @@ fn char_prevents_soft_wrap_opportunity_when_before_or_after_atomic(character: ch
         class == XI_LINE_BREAKING_CLASS_WJ ||
         class == XI_LINE_BREAKING_CLASS_ZWJ
 }
-
-
-/// Sort a mutable slice by the the given indices array in place, reording the slice so that final
-/// value of `slice[x]` is `slice[indices[x]]`.
-fn sort_by_indices_in_place<T>(data: &mut [T], mut indices: Vec<usize>) {
-    for idx in 0..data.len() {
-        if indices[idx] == idx {
-            continue;
-        }
-
-        let mut current_idx = idx;
-        loop {
-            let target_idx = indices[current_idx];
-            indices[current_idx] = current_idx;
-            if indices[target_idx] == target_idx {
-                break;
-            }
-            data.swap(current_idx, target_idx);
-            current_idx = target_idx;
-        }
-    }
-}
