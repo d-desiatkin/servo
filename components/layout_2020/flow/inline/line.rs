@@ -208,21 +208,18 @@ impl LineItemLayout<'_, '_> {
         // If first item is not ltr then we can assign wrong bidi direction to
         // InlinePBM items and Absolute position element. Code bellow fix InlinePBM
         // TODO(ddesyatkin) I need a maintainer consultation to make this place better
-        // {
-        //     if !line_items.is_empty() {
-        //         let first_item = &line_items[0];
-        //         let identifier = first_item.inline_box_identifier();
-        //         if identifier.is_some() {
-        //             let identifier = &identifier.unwrap();
-        //             let first_item_box = self.layout.ifc.inline_boxes.get(identifier);
-        //             let first_item_box = &*(first_item_box.borrow());
-        //             if !first_item_box.style.writing_mode.is_bidi_ltr() {
-        //                 last_level = Level::rtl();
-        //                 log::warn!("Hey Hey! I am here");
-        //             }
-        //         }
-        //     }
-        // }
+        {
+            if !line_items.is_empty() {
+                let first_item = &line_items[0];
+                let identifier = first_item.inline_box_identifier();
+                if identifier.is_some() {
+                    let identifier = &identifier.unwrap();
+                    let first_item_box = self.layout.ifc.inline_boxes.get(identifier);
+                    let first_item_box = &*(first_item_box.borrow());
+                    last_level = first_item_box.style.writing_mode.to_bidi_level();
+                }
+            }
+        }
 
         let levels: Vec<_> = line_items
             .iter()
@@ -268,18 +265,17 @@ impl LineItemLayout<'_, '_> {
         // from inline-start to inline-end. If the overall line contents have been flipped
         // for BiDi, flip them again so that they are in line start-to-end order rather
         // than left-to-right order.
-        // let line_item_iterator = if self
-        //     .layout
-        //     .containing_block
-        //     .style
-        //     .writing_mode
-        //     .is_bidi_ltr()
-        // {
-        //     Either::Left(line_items.into_iter())
-        // } else {
-        //     Either::Right(line_items.into_iter().rev())
-        // };
-        let line_item_iterator = line_items.into_iter();
+        let line_item_iterator = if self
+            .layout
+            .containing_block
+            .style
+            .writing_mode
+            .is_bidi_ltr()
+        {
+            Either::Left(line_items.into_iter())
+        } else {
+            Either::Right(line_items.into_iter().rev())
+        };
 
         for item in line_item_iterator.into_iter().by_ref() {
             // When preparing to lay out a new line item, start and end inline boxes, so that the current

@@ -1532,10 +1532,12 @@ impl InlineFormattingContext {
         let mut font_metrics = Vec::new();
 
         // Usage of BidiInfo::new breakes several conventions of Unicode UA#9 bidirectional algorithm and we should
-        // follow this algorithm in CSS. First we do not override bidi_paragraph direction and just get it from the text
-        // in straightforward manner.
-        // Second BidiInfo creation will not apply proper reorderings. According to Unicode we should perform L1 and L2
+        // follow this algorithm in CSS.
+        // BidiInfo creation will not apply proper reorderings. According to Unicode we should perform L1 and L2
         // steps of algorithm before shaping.
+
+        // https://www.w3.org/TR/css-writing-modes-3/#bidi-para-direction
+        // Some(starting_bidi_level) allow us to override base paragraph directionality
         let mut bidi_info = BidiInfo::new(&text_content, Some(starting_bidi_level));
         let has_right_to_left_content = bidi_info.has_rtl();
         let mut computed_levels: Vec<Level> = Vec::new();
@@ -1544,21 +1546,26 @@ impl InlineFormattingContext {
             let range = bidi_par.range.clone();
             // Previously L1 rule was not computed. Code bellow computes L1 rule for text
             // Here we virtually place all paragraphs on one infinite line to get correct bidirectionality
-            let mut l1_reordered = bidi_info.reordered_levels(&bidi_par, range);
-            let l2_indexes =  BidiInfo::reorder_visual(&l1_reordered);
 
-            // Assign levels to inline items here????
-            sort_by_indices_in_place(&mut l1_reordered, l2_indexes);
+            // Here we get per byte l1 computed levels for all elements of inline formatting context
+            // This information must be used in subsequent visual level reordering. We must do it here and
+            // not inside TextRun computations because then we would skip bidi control symbols introduced by
+            // StartInlineBox and EndInlineBox (i.e. <span> elements)
+            // This info should be passed down the line to determine propper bidi level of the element.
+            let mut l1_reordered = bidi_info.reordered_levels(&bidi_par, range);
+
+            // Here we get help data to l2 reorder previously computed l1 reordering.
+            // let l2_indexes =  BidiInfo::reorder_visual(&l1_reordered);
+
+            // sort_by_indices_in_place provides correct l2 reordering of inline items
+            // important! We don't reorder inline items itself here. Inline items
+            // preserve logical order. But we get a vector of inline levels with correct
+            // bidi positions. However that assumes that we perform text in memory reordering right here!
+            // sort_by_indices_in_place(&mut l1_reordered, l2_indexes);
             computed_levels.append(&mut l1_reordered);
         }
-        // Here we get per byte l1 computed levels for all elements of inline formatting context
-        // This information must be used in subsequent visual level reordering. We must do it here and
-        // not inside TextRun computations because then we would skip bidi control symbols introduced by
-        // StartInlineBox and EndInlineBox (i.e. <span> elements)
-        // This info should be passed down the line to determine propper bidi level of the element.
 
-        // mem::replace(&mut bidi_info.levels, computed_levels);
-        bidi_info.levels = computed_levels;
+        bidi_info.levels = computed_levels; // Is it safe to mutate global structure?????
 
         let mut new_linebreaker = LineBreaker::new(text_content.as_str());
         for item in builder.inline_items.iter() {

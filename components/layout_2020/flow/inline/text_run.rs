@@ -24,6 +24,7 @@ use style::str::char_is_whitespace;
 use style::values::computed::OverflowWrap;
 use unicode_bidi::{BidiInfo, Level};
 use unicode_script::Script;
+use unicode_segmentation::UnicodeSegmentation;
 use xi_unicode::linebreak_property;
 
 use super::line_breaker::LineBreaker;
@@ -175,8 +176,12 @@ impl TextRunSegment {
         segment_font: &FontRef,
         options: &ShapingOptions,
     ) {
+        let mut text = formatting_context_text[range.clone()].to_owned();
+        if options.flags.contains(ShapingFlags::RTL_FLAG) {
+            text = text.as_str().graphemes(true).rev().collect();
+        }
         self.runs.push(GlyphRun {
-            glyph_store: segment_font.shape_text(&formatting_context_text[range.clone()], options),
+            glyph_store: segment_font.shape_text(&text, options),
             range: ServoRange::new(
                 ByteIndex(range.start as isize),
                 ByteIndex(range.len() as isize),

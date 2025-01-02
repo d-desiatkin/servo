@@ -85,19 +85,6 @@ impl InlineFormattingContextBuilder {
         !self.inline_box_stack.is_empty()
     }
 
-    pub(crate) fn override_base_bidi_paragraph_level(&mut self, is_rtl: bool) {
-        // Bellow you will find implementation of following property
-        // https://www.w3.org/TR/css-writing-modes-3/#bidi-para-direction
-        // Push control level character that will setup base bidi paragraph
-        // direction. This character should correspond to CSS direction property
-        // of block that contains this inline.
-        if is_rtl {
-            self.push_control_character_string("\u{200f}"); // RLM
-        } else {
-            self.push_control_character_string("\u{200e}"); // LRM
-        }
-    }
-
     fn push_control_character_string(&mut self, string_to_push: &str) {
         self.text_segments.push(string_to_push.to_owned());
         self.current_text_offset += string_to_push.len();

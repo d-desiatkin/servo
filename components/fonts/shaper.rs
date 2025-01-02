@@ -371,6 +371,10 @@ impl Shaper {
     pub(crate) fn shape_text(&self, text: &str, options: &ShapingOptions, glyphs: &mut GlyphStore) {
         unsafe {
             let hb_buffer: *mut hb_buffer_t = hb_buffer_create();
+            // Buffer direction will not perform in memory glyph swap;
+            // If we want to have proper visual representation of RTL
+            // unicode codepoints should be reordered in memory before
+            // hb_buffer_add_utf8 function call
             hb_buffer_set_direction(
                 hb_buffer,
                 if options.flags.contains(ShapingFlags::RTL_FLAG) {
