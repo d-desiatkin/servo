@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use std::borrow::Borrow;
 use std::mem;
 use std::ops::Range;
 
@@ -392,6 +393,11 @@ impl TextRun {
                     script: segment.script,
                     flags,
                 };
+
+                // let mut bidi_par_iter = bidi_info.paragraphs.iter();
+                // let bidi_par = bidi_par_iter.find_map(
+                //     |e| e.range.contains(&segment.range.start).then_some(e)).unwrap();
+                // let r_text_content = BidiInfo::reorder_line(&bidi_info, &bidi_par, bidi_par.range.clone());
 
                 segment.shape_text(
                     &self.parent_style,

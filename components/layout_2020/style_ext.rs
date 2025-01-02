@@ -924,7 +924,7 @@ impl ComputedValuesExt for ComputedValues {
             self.get_text().unicode_bidi,
             self.get_inherited_box().direction,
         ) {
-            (UnicodeBidi::Normal, _) => ("", ""),
+            (UnicodeBidi::Normal, _) => ("\u{fffd}", "\u{fffd}"), // Try some optimization to ensure less corner cases
             (UnicodeBidi::Embed, Direction::Ltr) => ("\u{202a}", "\u{202c}"),
             (UnicodeBidi::Embed, Direction::Rtl) => ("\u{202b}", "\u{202c}"),
             (UnicodeBidi::Isolate, Direction::Ltr) => ("\u{2066}", "\u{2069}"),

@@ -180,7 +180,9 @@ pub(crate) struct FontKeyAndMetrics {
 
 #[derive(Debug, Serialize)]
 pub(crate) enum InlineItem {
-    StartInlineBox(ArcRefCell<InlineBox>),
+    StartInlineBox(
+        ArcRefCell<InlineBox>,
+    ),
     EndInlineBox,
     TextRun(ArcRefCell<TextRun>),
     OutOfFlowAbsolutelyPositionedBox(
@@ -1534,8 +1536,29 @@ impl InlineFormattingContext {
         // in straightforward manner.
         // Second BidiInfo creation will not apply proper reorderings. According to Unicode we should perform L1 and L2
         // steps of algorithm before shaping.
-        let bidi_info = BidiInfo::new(&text_content, Some(starting_bidi_level));
+        let mut bidi_info = BidiInfo::new(&text_content, Some(starting_bidi_level));
         let has_right_to_left_content = bidi_info.has_rtl();
+        let mut computed_levels: Vec<Level> = Vec::new();
+
+        for bidi_par in bidi_info.paragraphs.clone() {
+            let range = bidi_par.range.clone();
+            // Previously L1 rule was not computed. Code bellow computes L1 rule for text
+            // Here we virtually place all paragraphs on one infinite line to get correct bidirectionality
+            let mut l1_reordered = bidi_info.reordered_levels(&bidi_par, range);
+            let l2_indexes =  BidiInfo::reorder_visual(&l1_reordered);
+
+            // Assign levels to inline items here????
+            sort_by_indices_in_place(&mut l1_reordered, l2_indexes);
+            computed_levels.append(&mut l1_reordered);
+        }
+        // Here we get per byte l1 computed levels for all elements of inline formatting context
+        // This information must be used in subsequent visual level reordering. We must do it here and
+        // not inside TextRun computations because then we would skip bidi control symbols introduced by
+        // StartInlineBox and EndInlineBox (i.e. <span> elements)
+        // This info should be passed down the line to determine propper bidi level of the element.
+
+        // mem::replace(&mut bidi_info.levels, computed_levels);
+        bidi_info.levels = computed_levels;
 
         let mut new_linebreaker = LineBreaker::new(text_content.as_str());
         for item in builder.inline_items.iter() {
@@ -1561,6 +1584,7 @@ impl InlineFormattingContext {
                             &layout_context.font_context,
                         ));
                     }
+                    (*inline_box).bidi_level = bidi_info.levels[(*inline_box).text_offset];
                 },
                 InlineItem::Atomic(_, index_in_text, bidi_level) => {
                     *bidi_level = bidi_info.levels[*index_in_text];
@@ -2435,4 +2459,26 @@ fn char_prevents_soft_wrap_opportunity_when_before_or_after_atomic(character: ch
     class == XI_LINE_BREAKING_CLASS_GL ||
         class == XI_LINE_BREAKING_CLASS_WJ ||
         class == XI_LINE_BREAKING_CLASS_ZWJ
+}
+
+
+/// Sort a mutable slice by the the given indices array in place, reording the slice so that final
+/// value of `slice[x]` is `slice[indices[x]]`.
+fn sort_by_indices_in_place<T>(data: &mut [T], mut indices: Vec<usize>) {
+    for idx in 0..data.len() {
+        if indices[idx] == idx {
+            continue;
+        }
+
+        let mut current_idx = idx;
+        loop {
+            let target_idx = indices[current_idx];
+            indices[current_idx] = current_idx;
+            if indices[target_idx] == target_idx {
+                break;
+            }
+            data.swap(current_idx, target_idx);
+            current_idx = target_idx;
+        }
+    }
 }

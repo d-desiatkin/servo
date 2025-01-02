@@ -9,6 +9,7 @@ use fonts::FontMetrics;
 use serde::Serialize;
 use servo_arc::Arc;
 use style::properties::ComputedValues;
+use unicode_bidi::{BidiInfo, Level};
 
 use super::{inline_container_needs_strut, InlineContainerState, InlineContainerStateFlags};
 use crate::cell::ArcRefCell;
@@ -31,6 +32,9 @@ pub(crate) struct InlineBox {
     /// The index of the default font in the [`super::InlineFormattingContext`]'s font metrics store.
     /// This is initialized during IFC shaping.
     pub default_font_index: Option<usize>,
+
+    pub text_offset: usize, /* offset_in_text */
+    pub bidi_level: Level, /* bidi_level */
 }
 
 impl InlineBox {
@@ -43,6 +47,8 @@ impl InlineBox {
             is_first_fragment: true,
             is_last_fragment: false,
             default_font_index: None,
+            text_offset: 0,
+            bidi_level: Level::ltr()
         }
     }
 

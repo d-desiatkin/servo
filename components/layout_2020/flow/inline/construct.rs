@@ -175,8 +175,12 @@ impl InlineFormattingContextBuilder {
         inline_level_box
     }
 
-    pub(crate) fn start_inline_box(&mut self, inline_box: InlineBox) -> ArcRefCell<InlineItem> {
+    pub(crate) fn start_inline_box(&mut self, mut inline_box: InlineBox) -> ArcRefCell<InlineItem> {
+        let box_text_offset = self.current_text_offset;
         self.push_control_character_string(inline_box.style.bidi_control_chars().0);
+
+        inline_box.text_offset = box_text_offset;
+        inline_box.bidi_level = Level::ltr();
 
         let (identifier, inline_box) = self.inline_boxes.start_inline_box(inline_box);
         let inline_level_box = ArcRefCell::new(InlineItem::StartInlineBox(inline_box));

@@ -205,6 +205,25 @@ impl LineItemLayout<'_, '_> {
 
     pub(super) fn layout(&mut self, mut line_items: Vec<LineItem>) -> Vec<Fragment> {
         let mut last_level = Level::ltr();
+        // If first item is not ltr then we can assign wrong bidi direction to
+        // InlinePBM items and Absolute position element. Code bellow fix InlinePBM
+        // TODO(ddesyatkin) I need a maintainer consultation to make this place better
+        // {
+        //     if !line_items.is_empty() {
+        //         let first_item = &line_items[0];
+        //         let identifier = first_item.inline_box_identifier();
+        //         if identifier.is_some() {
+        //             let identifier = &identifier.unwrap();
+        //             let first_item_box = self.layout.ifc.inline_boxes.get(identifier);
+        //             let first_item_box = &*(first_item_box.borrow());
+        //             if !first_item_box.style.writing_mode.is_bidi_ltr() {
+        //                 last_level = Level::rtl();
+        //                 log::warn!("Hey Hey! I am here");
+        //             }
+        //         }
+        //     }
+        // }
+
         let levels: Vec<_> = line_items
             .iter()
             .map(|item| {
@@ -213,7 +232,12 @@ impl LineItemLayout<'_, '_> {
                     // TODO: This level needs either to be last_level, or if there were
                     // unicode characters inserted for the inline box, we need to get the
                     // level from them.
-                    LineItem::InlineStartBoxPaddingBorderMargin(_) => last_level,
+                    LineItem::InlineStartBoxPaddingBorderMargin(identifier) => {
+                        let inline_box = self.layout.ifc.inline_boxes.get(identifier);
+                        let inline_box = &*(inline_box.borrow());
+                        (*inline_box).bidi_level
+                        // last_level
+                    },
                     LineItem::InlineEndBoxPaddingBorderMargin(_) => last_level,
                     LineItem::Atomic(_, atomic) => atomic.bidi_level,
                     LineItem::AbsolutelyPositioned(..) => last_level,
@@ -230,7 +254,10 @@ impl LineItemLayout<'_, '_> {
 
         // Here only L2 rule of bidi reordering is applied. We break Unicode plaintext convention of shaping and
         // linebreaking by doing it here, because this reordering should happen before shaping of the text.
-        // But we do it for performance reasons.
+        // But we do it for performance reasons. We don't shape across line. We shape at minimal level of
+        // text_runs (pieses of string with same: font, language, script and bidi). And it means that we
+        // are responsible for correct reordering of shaped text runs. HarfBuzz will not do it for us.
+        // We can improve it by preserving hb_buffer across individual shaping operations.
         if self.layout.ifc.has_right_to_left_content {
             sort_by_indices_in_place(&mut line_items, BidiInfo::reorder_visual(&levels));
         }
@@ -241,17 +268,18 @@ impl LineItemLayout<'_, '_> {
         // from inline-start to inline-end. If the overall line contents have been flipped
         // for BiDi, flip them again so that they are in line start-to-end order rather
         // than left-to-right order.
-        let line_item_iterator = if self
-            .layout
-            .containing_block
-            .style
-            .writing_mode
-            .is_bidi_ltr()
-        {
-            Either::Left(line_items.into_iter())
-        } else {
-            Either::Right(line_items.into_iter().rev())
-        };
+        // let line_item_iterator = if self
+        //     .layout
+        //     .containing_block
+        //     .style
+        //     .writing_mode
+        //     .is_bidi_ltr()
+        // {
+        //     Either::Left(line_items.into_iter())
+        // } else {
+        //     Either::Right(line_items.into_iter().rev())
+        // };
+        let line_item_iterator = line_items.into_iter();
 
         for item in line_item_iterator.into_iter().by_ref() {
             // When preparing to lay out a new line item, start and end inline boxes, so that the current
