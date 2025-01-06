@@ -204,6 +204,52 @@ impl LineItemLayout<'_, '_> {
     }
 
     pub(super) fn layout(&mut self, mut line_items: Vec<LineItem>) -> Vec<Fragment> {
+
+        // Ideally we should have a range in text that this line occupies
+
+        // let bidi_info = BidiInfo::new(self.layout.ifc.text_content.as_str(), Some(self.layout.ifc.starting_bidi_level));
+        // let mut computed_levels: Vec<Level> = Vec::new();
+
+        // let mut bidi_par_iter = bidi_info.paragraphs.iter();
+
+        // Line bellow is safe cause segments should never cross bidi paragraph
+        // match line_items.last() {
+        //     LineItem::InlineStartBoxPaddingBorderMargin(identifier)
+        //         | LineItem::InlineEndBoxPaddingBorderMargin(identifier) => {
+        //         let last_item_box = self.layout.ifc.inline_boxes.get(&identifier);
+        //         let last_item_box = &*(last_item_box.borrow());
+        //         ()
+        //     },
+        //     LineItem::TextRun(identifier, _)
+        //         | LineItem::Atomic(identifier, _)
+        //         | LineItem::AbsolutelyPositioned(identifier, _)
+        //         | LineItem::Float(identifier, _) => {
+        //         ()
+        //     },
+
+        // }
+        // let bidi_par = bidi_par_iter.find_map(
+        //     |e| e.range.contains(&.range.start).then_some(e)).unwrap();
+
+        // for bidi_par in bidi_info.paragraphs.clone() {
+        //     let range = bidi_par.range.clone();
+        //     // Previously L1 rule was not computed. Code bellow computes L1 rule for text
+        //     // Here we virtually place all paragraphs on one infinite line to get correct bidirectionality
+
+        //     // Here we get per byte l1 computed levels for all elements of inline formatting context
+        //     // This information must be used in subsequent visual level reordering. We must do it here and
+        //     // not inside TextRun computations because then we would skip bidi control symbols introduced by
+        //     // StartInlineBox and EndInlineBox (i.e. <span> elements)
+        //     // This info should be passed down the line to determine propper bidi level of the element.
+        //     let mut l1_reordered = bidi_info.reordered_levels(&bidi_par, range);
+
+        //     computed_levels.append(&mut l1_reordered);
+        // }
+        // // Main problem with current approach consists in fact that one
+
+        // let whole_text = self.layout.ifc.text_content;
+
+
         let mut last_level = Level::ltr();
         // If first item is not ltr then we can assign wrong bidi direction to
         // InlinePBM items and Absolute position element. Code bellow fix InlinePBM
@@ -249,12 +295,6 @@ impl LineItemLayout<'_, '_> {
             })
             .collect();
 
-        // Here only L2 rule of bidi reordering is applied. We break Unicode plaintext convention of shaping and
-        // linebreaking by doing it here, because this reordering should happen before shaping of the text.
-        // But we do it for performance reasons. We don't shape across line. We shape at minimal level of
-        // text_runs (pieses of string with same: font, language, script and bidi). And it means that we
-        // are responsible for correct reordering of shaped text runs. HarfBuzz will not do it for us.
-        // We can improve it by preserving hb_buffer across individual shaping operations.
         if self.layout.ifc.has_right_to_left_content {
             sort_by_indices_in_place(&mut line_items, BidiInfo::reorder_visual(&levels));
         }

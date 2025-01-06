@@ -740,7 +740,20 @@ impl fmt::Debug for GlyphStore {
     }
 }
 
-/// A single series of glyphs within a text run.
+/// Microsoft: Represents a sequence of glyphs from a single face of a single font at a single size, and
+/// with a single rendering style.
+/// Apple: A glyph run is a set of consecutive glyphs sharing the same attributes and direction.
+/// Android: No clear definition is given in codebases. However there is a blog of original android
+/// typesetting author Raph Levien, according to him:
+/// ```
+/// Shaping (cluster)
+/// At this point, we have a run of constant style, font, direction, and script. ...
+/// ```
+/// https://developer.apple.com/documentation/coretext/ctrun-61n
+/// https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.textformatting.textrun?view=windowsdesktop-9.0
+/// https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.glyphrun?view=windowsdesktop-8.0
+/// https://raphlinus.github.io/text/2020/10/26/text-layout.html
+/// https://android.googlesource.com/platform/frameworks/minikin/+/refs/heads/main/libs/minikin/LayoutSplitter.h
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GlyphRun {
     /// The glyphs.

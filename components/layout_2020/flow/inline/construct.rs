@@ -12,7 +12,7 @@ use style::values::computed::TextDecorationLine;
 use style::values::specified::text::TextTransformCase;
 use unicode_bidi::Level;
 
-use super::text_run::TextRun;
+use super::text_run::TextSequence;
 use super::{InlineBox, InlineBoxIdentifier, InlineBoxes, InlineFormattingContext, InlineItem};
 use crate::cell::ArcRefCell;
 use crate::context::LayoutContext;
@@ -108,7 +108,7 @@ impl InlineFormattingContextBuilder {
                 InlineItem::EndInlineBox => false,
                 // Text content is handled by `self.has_uncollapsible_text` content above in order
                 // to avoid having to iterate through the character once again.
-                InlineItem::TextRun(_) => true,
+                InlineItem::TextSequence(_) => true,
                 InlineItem::OutOfFlowAbsolutelyPositionedBox(..) => false,
                 InlineItem::OutOfFlowFloatBox(_) => false,
                 InlineItem::Atomic(..) => false,
@@ -260,15 +260,15 @@ impl InlineFormattingContextBuilder {
         self.text_segments.push(new_text);
 
         if let Some(inline_item) = self.inline_items.last() {
-            if let InlineItem::TextRun(text_run) = &mut *inline_item.borrow_mut() {
-                text_run.borrow_mut().text_range.end = new_range.end;
+            if let InlineItem::TextSequence(text_sequence) = &mut *inline_item.borrow_mut() {
+                text_sequence.borrow_mut().text_range.end = new_range.end;
                 return;
             }
         }
 
         self.inline_items
-            .push(ArcRefCell::new(InlineItem::TextRun(ArcRefCell::new(
-                TextRun::new(info.into(), info.style.clone(), new_range),
+            .push(ArcRefCell::new(InlineItem::TextSequence(ArcRefCell::new(
+                TextSequence::new(info.into(), info.style.clone(), new_range),
             ))));
     }
 

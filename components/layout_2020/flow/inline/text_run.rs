@@ -23,7 +23,6 @@ use style::str::char_is_whitespace;
 use style::values::computed::OverflowWrap;
 use unicode_bidi::{BidiInfo, Level};
 use unicode_script::Script;
-use unicode_segmentation::UnicodeSegmentation;
 use xi_unicode::linebreak_property;
 
 use super::line_breaker::LineBreaker;
@@ -38,16 +37,33 @@ pub(crate) const XI_LINE_BREAKING_CLASS_ZW: u8 = 28;
 pub(crate) const XI_LINE_BREAKING_CLASS_WJ: u8 = 30;
 pub(crate) const XI_LINE_BREAKING_CLASS_ZWJ: u8 = 42;
 
-/// <https://www.w3.org/TR/css-display-3/#css-text-run>
+/// <https://drafts.csswg.org/css-display/#css-text-sequence>
 #[derive(Debug, Serialize)]
-pub(crate) struct TextRun {
+pub(crate) struct TextSequence {
     pub base_fragment_info: BaseFragmentInfo,
     #[serde(skip_serializing)]
     pub parent_style: Arc<ComputedValues>,
     pub text_range: Range<usize>,
 
-    /// The text of this [`TextRun`] with a font selected, broken into unbreakable
-    /// segments, and shaped.
+    /// The text of this [`TextSequence`] with a font selected, broken into [`TextRun`]s
+    /// and shaped. [`TextRunSegment`] here is collection of several [`GlyphRun`]s elements
+    /// that store results of shaping.
+    /// Important! Shaper work with separate entity called [`TextRun`], that is segment
+    /// of Unicode string that have 4 properties in common: Language, Script, Bidi, Font
+    /// https://harfbuzz.github.io/text-runs.html
+    ///
+    /// Under Font in definition above we consider not only the font type, but also all
+    /// font properties that could change layout size of the font
+    /// https://drafts.csswg.org/css-fonts-4/
+    ///
+    /// There is no consistency in the industry that is why we have 2 terms with identical
+    /// or very close meaning [`TextRun`] and [`GlyphRun`]. My personal suggestion is to
+    /// give them clear definition by their functionality. TextRun - just a segment of arbitrary
+    /// unicode string with properties stated above.
+    ///
+    /// As a rule of thumb each developer must think. If his propperty affects GlyphMetrics
+    /// then it may split TextSequence into more and more finer text-runs
+    /// https://freetype.org/freetype2/docs/glyphs/glyphs-3.html
     pub shaped_text: Vec<TextRunSegment>,
 }
 
@@ -101,7 +117,7 @@ impl TextRunSegment {
         }
     }
 
-    /// Update this segment if the Font and Script are compatible. The update will only
+    /// Update this segment if the Font, Script, Bidi are compatible. The update will only
     /// ever make the Script specific. Returns true if the new Font and Script are
     /// compatible with this segment or false otherwise.
     fn update_if_compatible(
@@ -135,7 +151,7 @@ impl TextRunSegment {
 
     fn layout_into_line_items(
         &self,
-        text_run: &TextRun,
+        text_sequence: &TextSequence,
         mut soft_wrap_policy: SegmentStartSoftWrapPolicy,
         ifc: &mut InlineFormattingContextLayout,
     ) {
@@ -161,7 +177,7 @@ impl TextRunSegment {
             }
             ifc.push_glyph_store_to_unbreakable_segment(
                 run.glyph_store.clone(),
-                text_run,
+                text_sequence,
                 self.font_index,
                 self.bidi_level,
             );
@@ -175,12 +191,8 @@ impl TextRunSegment {
         segment_font: &FontRef,
         options: &ShapingOptions,
     ) {
-        let mut text = formatting_context_text[range.clone()].to_owned();
-        if options.flags.contains(ShapingFlags::RTL_FLAG) {
-            text = text.as_str().graphemes(true).rev().collect();
-        }
         self.runs.push(GlyphRun {
-            glyph_store: segment_font.shape_text(&text, options),
+            glyph_store: segment_font.shape_text(&formatting_context_text[range.clone()], options),
             range: ServoRange::new(
                 ByteIndex(range.start as isize),
                 ByteIndex(range.len() as isize),
@@ -330,7 +342,7 @@ impl TextRunSegment {
     }
 }
 
-impl TextRun {
+impl TextSequence {
     pub(crate) fn new(
         base_fragment_info: BaseFragmentInfo,
         parent_style: Arc<ComputedValues>,
@@ -397,11 +409,6 @@ impl TextRun {
                     script: segment.script,
                     flags,
                 };
-
-                // let mut bidi_par_iter = bidi_info.paragraphs.iter();
-                // let bidi_par = bidi_par_iter.find_map(
-                //     |e| e.range.contains(&segment.range.start).then_some(e)).unwrap();
-                // let r_text_content = BidiInfo::reorder_line(&bidi_info, &bidi_par, bidi_par.range.clone());
 
                 segment.shape_text(
                     &self.parent_style,

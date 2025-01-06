@@ -75,6 +75,7 @@ mod line_breaker;
 pub mod text_run;
 
 use std::cell::{OnceCell, RefCell};
+use std::borrow::Borrow;
 use std::mem;
 use std::rc::Rc;
 
@@ -93,6 +94,7 @@ use servo_arc::Arc;
 use style::computed_values::text_wrap_mode::T as TextWrapMode;
 use style::computed_values::vertical_align::T as VerticalAlign;
 use style::computed_values::white_space_collapse::T as WhiteSpaceCollapse;
+use style::computed_values::unicode_bidi::T as UnicodeBidi;
 use style::context::QuirksMode;
 use style::properties::style_structs::InheritedText;
 use style::properties::ComputedValues;
@@ -103,8 +105,7 @@ use style::values::specified::text::{TextAlignKeyword, TextDecorationLine};
 use style::values::specified::{TextAlignLast, TextJustify};
 use style::Zero;
 use text_run::{
-    add_or_get_font, get_font_for_first_font_for_style, TextRun, XI_LINE_BREAKING_CLASS_GL,
-    XI_LINE_BREAKING_CLASS_WJ, XI_LINE_BREAKING_CLASS_ZWJ,
+    add_or_get_font, get_font_for_first_font_for_style, TextSequence, XI_LINE_BREAKING_CLASS_GL, XI_LINE_BREAKING_CLASS_WJ, XI_LINE_BREAKING_CLASS_ZWJ
 };
 use unicode_bidi::{BidiInfo, Level};
 use webrender_api::FontInstanceKey;
@@ -155,6 +156,7 @@ pub(crate) struct InlineFormattingContext {
 
     pub(super) text_decoration_line: TextDecorationLine,
 
+    pub(super) starting_bidi_level: Level,
     /// Whether this IFC contains the 1st formatted line of an element:
     /// <https://www.w3.org/TR/css-pseudo-4/#first-formatted-line>.
     pub(super) has_first_formatted_line: bool,
@@ -184,7 +186,7 @@ pub(crate) enum InlineItem {
         ArcRefCell<InlineBox>,
     ),
     EndInlineBox,
-    TextRun(ArcRefCell<TextRun>),
+    TextSequence(ArcRefCell<TextSequence>),
     OutOfFlowAbsolutelyPositionedBox(
         ArcRefCell<AbsolutelyPositionedBox>,
         usize, /* offset_in_text */
@@ -1262,13 +1264,13 @@ impl InlineFormattingContextLayout<'_> {
     pub(super) fn push_glyph_store_to_unbreakable_segment(
         &mut self,
         glyph_store: std::sync::Arc<GlyphStore>,
-        text_run: &TextRun,
+        text_sequence: &TextSequence,
         font_index: usize,
         bidi_level: Level,
     ) {
         let inline_advance = glyph_store.total_advance();
         let flags = if glyph_store.is_whitespace() {
-            SegmentContentFlags::from(text_run.parent_style.get_inherited_text())
+            SegmentContentFlags::from(text_sequence.parent_style.get_inherited_text())
         } else {
             SegmentContentFlags::empty()
         };
@@ -1325,8 +1327,8 @@ impl InlineFormattingContextLayout<'_> {
             current_inline_box_identifier,
             TextRunLineItem {
                 text: vec![glyph_store],
-                base_fragment_info: text_run.base_fragment_info,
-                parent_style: text_run.parent_style.clone(),
+                base_fragment_info: text_sequence.base_fragment_info,
+                parent_style: text_sequence.parent_style.clone(),
                 font_metrics,
                 font_key: ifc_font_info.key,
                 text_decoration_line: self.current_inline_container_state().text_decoration_line,
@@ -1531,47 +1533,22 @@ impl InlineFormattingContext {
         let text_content: String = builder.text_segments.into_iter().collect();
         let mut font_metrics = Vec::new();
 
-        // Usage of BidiInfo::new breakes several conventions of Unicode UA#9 bidirectional algorithm and we should
-        // follow this algorithm in CSS.
-        // BidiInfo creation will not apply proper reorderings. According to Unicode we should perform L1 and L2
-        // steps of algorithm before shaping.
-
         // https://www.w3.org/TR/css-writing-modes-3/#bidi-para-direction
+        // http://www.unicode.org/reports/tr9/#The_Paragraph_Level
+        // http://www.unicode.org/reports/tr9/#HL1
         // Some(starting_bidi_level) allow us to override base paragraph directionality
-        let mut bidi_info = BidiInfo::new(&text_content, Some(starting_bidi_level));
+        // BidiInfo::new computes everything up to http://www.unicode.org/reports/tr9/#I2
+        let bidi_info = BidiInfo::new(text_content.borrow(), Some(starting_bidi_level));
         let has_right_to_left_content = bidi_info.has_rtl();
-        let mut computed_levels: Vec<Level> = Vec::new();
 
-        for bidi_par in bidi_info.paragraphs.clone() {
-            let range = bidi_par.range.clone();
-            // Previously L1 rule was not computed. Code bellow computes L1 rule for text
-            // Here we virtually place all paragraphs on one infinite line to get correct bidirectionality
-
-            // Here we get per byte l1 computed levels for all elements of inline formatting context
-            // This information must be used in subsequent visual level reordering. We must do it here and
-            // not inside TextRun computations because then we would skip bidi control symbols introduced by
-            // StartInlineBox and EndInlineBox (i.e. <span> elements)
-            // This info should be passed down the line to determine propper bidi level of the element.
-            let mut l1_reordered = bidi_info.reordered_levels(&bidi_par, range);
-
-            // Here we get help data to l2 reorder previously computed l1 reordering.
-            // let l2_indexes =  BidiInfo::reorder_visual(&l1_reordered);
-
-            // sort_by_indices_in_place provides correct l2 reordering of inline items
-            // important! We don't reorder inline items itself here. Inline items
-            // preserve logical order. But we get a vector of inline levels with correct
-            // bidi positions. However that assumes that we perform text in memory reordering right here!
-            // sort_by_indices_in_place(&mut l1_reordered, l2_indexes);
-            computed_levels.append(&mut l1_reordered);
-        }
-
-        bidi_info.levels = computed_levels; // Is it safe to mutate global structure?????
-
-        let mut new_linebreaker = LineBreaker::new(text_content.as_str());
+        let mut new_linebreaker = LineBreaker::new(text_content.borrow());
         for item in builder.inline_items.iter() {
             match &mut *item.borrow_mut() {
-                InlineItem::TextRun(ref mut text_run) => {
-                    text_run.borrow_mut().segment_and_shape(
+                InlineItem::TextSequence(ref mut text_sequence) => {
+                    // http://www.unicode.org/reports/tr9/#Shaping
+                    // Shaping performed after I2 step of bidi algorithm
+                    // Bidi reorderings L1-L4 should go after the shaping
+                    text_sequence.borrow_mut().segment_and_shape(
                         &text_content,
                         &layout_context.font_context,
                         &mut new_linebreaker,
@@ -1592,6 +1569,9 @@ impl InlineFormattingContext {
                         ));
                     }
                     (*inline_box).bidi_level = bidi_info.levels[(*inline_box).text_offset];
+                    if inline_box.style.get_text().unicode_bidi == UnicodeBidi::IsolateOverride {
+                        (*inline_box).bidi_level = bidi_info.levels[(*inline_box).text_offset + "\u{2068}".len()];
+                    }
                 },
                 InlineItem::Atomic(_, index_in_text, bidi_level) => {
                     *bidi_level = bidi_info.levels[*index_in_text];
@@ -1608,6 +1588,7 @@ impl InlineFormattingContext {
             inline_boxes: builder.inline_boxes,
             font_metrics,
             text_decoration_line,
+            starting_bidi_level,
             has_first_formatted_line,
             contains_floats: builder.contains_floats,
             is_single_line_text_input,
@@ -1704,7 +1685,7 @@ impl InlineFormattingContext {
                     layout.start_inline_box(&inline_box.borrow());
                 },
                 InlineItem::EndInlineBox => layout.finish_inline_box(),
-                InlineItem::TextRun(run) => run.borrow().layout_into_line_items(&mut layout),
+                InlineItem::TextSequence(text_sequence) => text_sequence.borrow().layout_into_line_items(&mut layout),
                 InlineItem::Atomic(atomic_formatting_context, offset_in_text, bidi_level) => {
                     atomic_formatting_context.layout_into_line_items(
                         &mut layout,
@@ -2306,10 +2287,10 @@ impl<'layout_data> ContentSizesComputation<'layout_data> {
                 let length = self.ending_inline_pbm_stack.pop().unwrap_or_else(Au::zero);
                 self.add_inline_size(length);
             },
-            InlineItem::TextRun(text_run) => {
-                let text_run = &*text_run.borrow();
-                for segment in text_run.shaped_text.iter() {
-                    let style_text = text_run.parent_style.get_inherited_text();
+            InlineItem::TextSequence(text_sequence) => {
+                let text_sequence = &*text_sequence.borrow();
+                for segment in text_sequence.shaped_text.iter() {
+                    let style_text = text_sequence.parent_style.get_inherited_text();
                     let can_wrap = style_text.text_wrap_mode == TextWrapMode::Wrap;
 
                     // TODO: This should take account whether or not the first and last character prevent
