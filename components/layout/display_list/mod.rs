@@ -11,6 +11,7 @@ use clip::{Clip, ClipId};
 use compositing_traits::display_list::{CompositorDisplayListInfo, SpatialTreeNodeInfo};
 use euclid::{Point2D, Scale, SideOffsets2D, Size2D, UnknownUnit, Vector2D};
 use fonts::GlyphStore;
+use fonts_traits::ByteIndex;
 use gradient::WebRenderGradient;
 use net_traits::image_cache::Image as CachedImage;
 use range::Range as ServoRange;
@@ -693,8 +694,8 @@ impl Fragment {
         let include_whitespace =
             fragment.has_selection() || text_decorations.iter().any(|item| !item.line.is_empty());
 
-        let glyphs = glyphs(
-            &fragment.glyphs,
+        let (glyphs, fragment_total_advance) = glyphs(
+            &fragment,
             baseline_origin,
             fragment.justification_adjustment,
             include_whitespace,
@@ -824,10 +825,24 @@ impl Fragment {
             }
         }
 
+        // TODO(ddesyatkin): Understand where to calculate total distance that we will maintain
+        // to decide whether current input glyph should be put into current DispalyItem or should
+        // be ommited to input ellipsis.
+
+        // TODO(ddesyatkin): Replace last glyphs in that vector with glyphs from layouted text
+        // ellipsis
+
+        let mut end_point = fragment.line_start_pos + fragment_total_advance;
+        let cropped_glyphs = if end_point > fragment.line_size {
+            &glyphs
+        } else {
+            &glyphs
+        };
+
         builder.wr().push_text(
             &common,
             rect.to_webrender(),
-            &glyphs,
+            cropped_glyphs,
             fragment.font_key,
             rgba(color),
             None,
@@ -1547,19 +1562,27 @@ fn rgba(color: AbsoluteColor) -> wr::ColorF {
 }
 
 fn glyphs(
-    glyph_runs: &[Arc<GlyphStore>],
+    fragment: &TextFragment,
     mut baseline_origin: PhysicalPoint<Au>,
     justification_adjustment: Au,
     include_whitespace: bool,
-) -> Vec<wr::GlyphInstance> {
+) -> (Vec<wr::GlyphInstance>, Au) {
     use fonts_traits::ByteIndex;
     use range::Range;
 
     let mut glyphs = vec![];
+
+    let glyph_runs = &fragment.glyphs;
+    let max_pos = fragment.line_size.clone();
+    let mut total_advance: Au = Au::zero();
+    let mut end_pos: Au = Au::zero();
     for run in glyph_runs {
         for glyph in run.iter_glyphs_for_byte_range(&Range::new(ByteIndex(0), run.len())) {
             if !run.is_whitespace() || include_whitespace {
                 let glyph_offset = glyph.offset().unwrap_or(Point2D::zero());
+                let delta = baseline_origin.x + glyph_offset.x - end_pos;
+                end_pos = baseline_origin.x + glyph_offset.x + glyph.advance();
+                total_advance = delta + glyph.advance();
                 let point = units::LayoutPoint::new(
                     baseline_origin.x.to_f32_px() + glyph_offset.x.to_f32_px(),
                     baseline_origin.y.to_f32_px() + glyph_offset.y.to_f32_px(),
@@ -1568,6 +1591,11 @@ fn glyphs(
                     index: glyph.id(),
                     point,
                 };
+                // If clause below handles first naive realization of text-overflow: ellipsis
+                // This realization can not properly landle text offset;
+                // if end_pos > max_pos {
+                //     break;
+                // }
                 glyphs.push(glyph);
             }
 
@@ -1577,7 +1605,7 @@ fn glyphs(
             baseline_origin.x += glyph.advance();
         }
     }
-    glyphs
+    (glyphs, total_advance)
 }
 
 // TODO: The implementation here does not account for multiple glyph runs properly.

@@ -917,7 +917,7 @@ impl InlineFormattingContextLayout<'_> {
     /// [`InlineFormattingContextLayout`] preparing it for laying out a new line.
     fn finish_current_line_and_reset(&mut self, last_line_or_forced_line_break: bool) {
         let whitespace_trimmed = self.current_line.trim_trailing_whitespace();
-        let (inline_start_position, justification_adjustment) = self
+        let (inline_start_position, inline_max_size, justification_adjustment) = self
             .calculate_current_line_inline_start_and_justification_adjustment(
                 whitespace_trimmed,
                 last_line_or_forced_line_break,
@@ -982,6 +982,7 @@ impl InlineFormattingContextLayout<'_> {
             self,
             line_to_layout.line_items,
             start_position,
+            inline_max_size,
             &effective_block_advance,
             justification_adjustment,
         );
@@ -1039,7 +1040,7 @@ impl InlineFormattingContextLayout<'_> {
         &self,
         whitespace_trimmed: Au,
         last_line_or_forced_line_break: bool,
-    ) -> (Au, Au) {
+    ) -> (Au, Au, Au) {
         enum TextAlign {
             Start,
             Center,
@@ -1133,7 +1134,7 @@ impl InlineFormattingContextLayout<'_> {
         // that case, do not make any adjustment for justification.
         let justification_adjustment = justification_adjustment.max(Au::zero());
 
-        (adjusted_line_start, justification_adjustment)
+        (adjusted_line_start, available_space, justification_adjustment)
     }
 
     fn place_float_fragment(&mut self, fragment: &mut BoxFragment) {

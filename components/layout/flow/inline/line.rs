@@ -38,6 +38,9 @@ pub(super) struct LineMetrics {
 
     /// The block offset of this line's baseline from [`Self::block_offset`].
     pub baseline_block_offset: Au,
+
+    /// The inline_size of this line.
+    pub inline_size: Au,
 }
 
 bitflags! {
@@ -155,6 +158,7 @@ impl LineItemLayout<'_, '_> {
         layout: &mut InlineFormattingContextLayout,
         line_items: Vec<LineItem>,
         start_position: LogicalVec2<Au>,
+        line_size: Au,
         effective_block_advance: &LineBlockSizes,
         justification_adjustment: Au,
     ) -> Vec<Fragment> {
@@ -170,6 +174,7 @@ impl LineItemLayout<'_, '_> {
                 block_offset: start_position.block,
                 block_size: effective_block_advance.resolve(),
                 baseline_block_offset: baseline_offset,
+                inline_size: line_size,
             },
             justification_adjustment,
         }
@@ -572,6 +577,8 @@ impl LineItemLayout<'_, '_> {
                 font_key: text_item.font_key,
                 glyphs: text_item.text,
                 justification_adjustment: self.justification_adjustment,
+                line_start_pos: start_corner.inline,
+                line_size: self.line_metrics.inline_size,
                 selection_range: text_item.selection_range,
             })),
             content_rect,

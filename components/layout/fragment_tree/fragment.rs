@@ -62,6 +62,10 @@ pub(crate) struct CollapsedMargin {
     min_negative: Au,
 }
 
+
+// TODO(ddesyatkin): We should add position and 
+// total length of fragment within current line?
+// Will it cause complications on reflow?
 #[derive(MallocSizeOf)]
 pub(crate) struct TextFragment {
     pub base: BaseFragment,
@@ -74,6 +78,18 @@ pub(crate) struct TextFragment {
 
     /// Extra space to add for each justification opportunity.
     pub justification_adjustment: Au,
+
+    /// The start position of fragment within linebox.
+    /// Should be immutable after Fragment Cnstruction
+    /// Must be recalculated in case of fragment reuse during incremental layout 
+    /// (currently used only by text-overflow calculation on display list construction) 
+    pub line_start_pos: Au,
+    /// The max logical size of linebox to which fragment belongs.
+    /// Should be immutable after Fragment Cnstruction
+    /// Must be recalculated in case of fragment reuse during incremental layout 
+    /// (currently used only by text-overflow calculation on display list construction) 
+    pub line_size: Au,
+    
     pub selection_range: Option<ServoRange<ByteIndex>>,
 }
 
